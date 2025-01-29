@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -65,6 +66,8 @@ dependencies {
     implementation("androidx.credentials:credentials:1.2.0") // Versão mais recente da AndroidX Credentials API
     implementation("androidx.credentials:credentials-play-services-auth:1.2.0") // Integração com o Google Play Services
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1") // Google Identity Services
+    implementation ("com.google.firebase:firebase-auth:21.0.1")
+    implementation ("com.google.firebase:firebase-firestore:24.0.0")
 
 }
 

@@ -22,6 +22,8 @@ class MainActivity : ComponentActivity() {
             FirebaseAuthTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     AppNavigation()
+
+
                 }
             }
         }

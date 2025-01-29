@@ -52,36 +52,41 @@ fun LoginPage(navController: NavController) {
         contract = ActivityResultContracts.StartActivityForResult(),
         onResult = { result ->
             if (result.resultCode == android.app.Activity.RESULT_OK) {
-                val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                val data = result.data
+                if (data != null) {
+                    val task = GoogleSignIn.getSignedInAccountFromIntent(data)
 
-                task.addOnCompleteListener { taskResult ->
-                    if (taskResult.isSuccessful) {
-                        val account = taskResult.result
-                        account?.let { signInAccount: GoogleSignInAccount ->
-                            val idToken = signInAccount.idToken
-                            Log.d("LoginPage", "ID Token: $idToken")  // Log do ID Token
+                    task.addOnCompleteListener { taskResult ->
+                        if (taskResult.isSuccessful) {
+                            val account = taskResult.result
+                            account?.let { signInAccount: GoogleSignInAccount ->
+                                val idToken = signInAccount.idToken
+                                Log.d("LoginPage", "ID Token: $idToken")  // Log do ID Token
 
-                            if (idToken != null) {
-                                loginViewModel.loginWithGoogle(idToken) { success ->
-                                    if (success) {
-                                        navController.navigate(AppPages.HomePage.route) {
-                                            popUpTo(AppPages.LoginPage.route) { inclusive = true }
+                                if (idToken != null) {
+                                    loginViewModel.loginWithGoogle(idToken) { success ->
+                                        if (success) {
+                                            navController.navigate(AppPages.HomePage.route) {
+                                                popUpTo(AppPages.LoginPage.route) { inclusive = true }
+                                            }
+                                        } else {
+                                            Log.w("LoginPage", "Google login failed after Firebase authentication")
                                         }
-                                    } else {
-                                        Log.w("LoginPage", "Google login failed after Firebase authentication")
                                     }
+                                } else {
+                                    Log.w("LoginPage", "Google Sign-In ID Token is null")
                                 }
-                            } else {
-                                Log.w("LoginPage", "Google Sign-In ID Token is null")
                             }
+                        } else {
+                            Log.e("LoginPage", "Google login failed: ${taskResult.exception?.message}") // Log detalhado do erro
+                            taskResult.exception?.printStackTrace() // Imprime o stack trace para depuração
                         }
-                    } else {
-                        Log.e("LoginPage", "Google login failed: ${taskResult.exception?.message}") // Log detalhado do erro
-                        taskResult.exception?.printStackTrace() // Imprime o stack trace para depuração
                     }
+                } else {
+                    Log.w("LoginPage", "Google login data is null")
                 }
             } else {
-                Log.w("LoginPage", "Google login failed 2: ${result.resultCode}")  // Log para capturar o código do resultado
+                Log.w("LoginPage", "Google login failed with resultCode: ${result.resultCode}")  // Log para capturar o código do resultado
             }
         }
     )
