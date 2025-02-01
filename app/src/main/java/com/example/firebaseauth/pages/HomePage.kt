@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -33,7 +34,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     val currentUser = authViewModel.currentUser
     val firestore = FirebaseFirestore.getInstance()
-    var chats by remember { mutableStateOf<List<Chat>>(emptyList()) }
+    var individualChats by remember { mutableStateOf<List<Chat>>(emptyList()) }
+    var groupChats by remember { mutableStateOf<List<Chat>>(emptyList()) }
     var profileImageUrl by remember { mutableStateOf("") }
     var userName by remember { mutableStateOf("") }
     var showUserPicker by remember { mutableStateOf(false) }
@@ -58,14 +60,19 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                     }
 
                     snapshot?.let {
-                        val updatedChats = it.documents.map { document ->
+                        val updatedChats = it.documents.mapNotNull { document ->
                             val chatId = document.id
                             val chatData = document.toObject(Chat::class.java)
                             chatData?.copy(chatId = chatId)
-                        }.filterNotNull()
+                        }
 
-
-                        chats = updatedChats
+                        // Filtra os chats em dois grupos
+                        individualChats = updatedChats.filter { chat ->
+                            chat.userIds.size == 2
+                        }
+                        groupChats = updatedChats.filter { chat ->
+                            chat.userIds.size > 2
+                        }
                     }
                 }
         }
@@ -124,10 +131,26 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(chats) { chat ->
-                    ChatItem(chat) { chatId ->
-                        navController.navigate(AppPages.ChatPage.route.replace("{chatId}", chatId))
+            // Exibe os chats individuais
+            if (individualChats.isNotEmpty()) {
+                Text(text = "Chats", style = MaterialTheme.typography.titleMedium)
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(individualChats) { chat ->
+                        ChatItem(chat) { chatId ->
+                            navController.navigate(AppPages.ChatPage.route.replace("{chatId}", chatId))
+                        }
+                    }
+                }
+            }
+
+            // Exibe os grupos de chat
+            if (groupChats.isNotEmpty()) {
+                Text(text = "Grupos de chat", style = MaterialTheme.typography.titleMedium)
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(groupChats) { chat ->
+                        ChatItem(chat) { chatId ->
+                            navController.navigate(AppPages.ChatPage.route.replace("{chatId}", chatId))
+                        }
                     }
                 }
             }
@@ -138,7 +161,7 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                 onDismiss = { showUserPicker = false },
                 onUserSelected = { newChatId ->
                     showUserPicker = false
-                    if(newChatId.isNotEmpty()){
+                    if (newChatId.isNotEmpty()) {
                         navController.navigate(AppPages.ChatPage.route.replace("{chatId}", newChatId))
                     }
                 }
