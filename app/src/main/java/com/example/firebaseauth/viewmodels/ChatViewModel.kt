@@ -1,3 +1,4 @@
+import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -30,13 +31,12 @@ class ChatViewModel(private val authViewModel: AuthViewModel) : ViewModel() {
     private val _chatInfo = mutableStateOf(Chat())
     val chatInfo: State<Chat> = _chatInfo
 
-
     fun listenForMessages(chatId: String) {
-        // Remover listeners antigos
+        // Remove listeners antigos
         messagesListener?.remove()
         chatInfoListener?.remove()
 
-        // Escutando as informações do chat (quem está digitando)
+        // Escutando as informações do chat (quem está digitando e os participantes)
         chatInfoListener = db.collection("chats").document(chatId)
             .addSnapshotListener { snapshot, _ ->
                 snapshot?.let {
@@ -69,12 +69,10 @@ class ChatViewModel(private val authViewModel: AuthViewModel) : ViewModel() {
                                 } else null
                             }
                             // Ordena as mensagens pela timestamp
-                            .sortedBy { it.message.timestamp } // Ordena por timestamp
+                            .sortedBy { it.message.timestamp }
                     }
                 }
             }
-
-
     }
 
     private suspend fun getUserInfo(userId: String): User? {
@@ -127,7 +125,7 @@ class ChatViewModel(private val authViewModel: AuthViewModel) : ViewModel() {
 
         try {
             newRead = message.read.addToCopyNoDuplicates(userId)
-        }catch (_:IllegalArgumentException){
+        } catch (_: IllegalArgumentException) {
             return
         }
 
@@ -146,12 +144,10 @@ class ChatViewModel(private val authViewModel: AuthViewModel) : ViewModel() {
             try {
                 val chatDoc = db.collection("chats").document(chatId).get().await()
                 val currentUserTypingList = chatDoc.get("userTyping") as? List<String> ?: emptyList()
-
                 val updatedUserTyping = currentUserTypingList.addToCopyNoDuplicates(userId)
-
                 db.collection("chats").document(chatId).update("userTyping", updatedUserTyping)
             } catch (e: Exception) {
-                // Handle exception
+                // Lidar com exceção, se necessário
             }
         }
     }
@@ -162,35 +158,58 @@ class ChatViewModel(private val authViewModel: AuthViewModel) : ViewModel() {
             try {
                 val chatDoc = db.collection("chats").document(chatId).get().await()
                 val currentUserTypingList = chatDoc.get("userTyping") as? List<String> ?: emptyList()
-
                 val updatedUserTyping = currentUserTypingList.filterNot { it == userId }
-
                 db.collection("chats").document(chatId).update("userTyping", updatedUserTyping)
             } catch (e: Exception) {
-                // Handle exception
+                // Lidar com exceção, se necessário
             }
         }
     }
 
     fun checkMessageChanged(index: Int, message: ChatMessage): ChatMessage? {
         val isDiff = !(_messages.value[index].message.messageId == message.message.messageId &&
-                    _messages.value[index].message.text == message.message.text &&
-                    _messages.value[index].message.senderId == message.message.senderId &&
-                    _messages.value[index].message.sent == message.message.sent &&
-                    _messages.value[index].message.read == message.message.read &&
-                    _messages.value[index].message.timestamp == message.message.timestamp &&
-                    _messages.value[index].user == message.user &&
-                    _messages.value[index].selfOwner == message.selfOwner &&
-                    _messages.value[index].usersInChat == message.usersInChat)
-        if(!isDiff)
+                _messages.value[index].message.text == message.message.text &&
+                _messages.value[index].message.senderId == message.message.senderId &&
+                _messages.value[index].message.sent == message.message.sent &&
+                _messages.value[index].message.read == message.message.read &&
+                _messages.value[index].message.timestamp == message.message.timestamp &&
+                _messages.value[index].user == message.user &&
+                _messages.value[index].selfOwner == message.selfOwner &&
+                _messages.value[index].usersInChat == message.usersInChat)
+        if (!isDiff)
             return null
         return _messages.value[index]
     }
 
-    suspend fun getUserName(userId: String): String{
+    suspend fun getUserName(userId: String): String {
         val user = getUserInfo(userId)
         return user?.name ?: "USER"
     }
+
+    /**
+     * Cria um novo chat de grupo com os participantes fornecidos.
+     * Você pode, posteriormente, navegar para esse novo chat.
+     */
+    fun createGroupChat(participants: List<String>) {
+        viewModelScope.launch {
+            try {
+                val newChatId = UUID.randomUUID().toString()
+                val newChat = Chat(
+                    chatId = newChatId,
+                    userIds = participants,
+                    messages = emptyList(),
+                    userTyping = emptyList()
+                )
+                db.collection("chats").document(newChatId).set(newChat).await()
+                // Opcional: atualize a UI ou navegue para o novo chat, se necessário.
+            } catch (e: Exception) {
+                // Lidar com erros, se necessário.
+            }
+        }
+    }
+
+
+
 
     override fun onCleared() {
         super.onCleared()

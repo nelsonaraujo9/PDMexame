@@ -11,10 +11,19 @@ import com.example.firebaseauth.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
+data class ChatActionParams(
+    val create: Boolean = true, // Define se vai criar ou adicionar
+    val existingChat: String? = null, // ID do chat existente, se não for criar um novo
+    val currentUsersInChat: List<String>? = null // Usuários já no chat, se existir
+)
+
 @Composable
 fun SelectUsersDialog(
     onDismiss: () -> Unit,
-    onUserSelected: (List<User>) -> Unit
+    onUserSelected: (String) -> Unit,
+    userNotAllowed: List<String>? = null,
+    isMultipleSelection: Boolean = false,
+    chatActionParams: ChatActionParams = ChatActionParams() // Novo parâmetro que agrupa a lógica de criação ou adição
 ) {
     val firestore = FirebaseFirestore.getInstance()
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -24,57 +33,75 @@ fun SelectUsersDialog(
     var existingChatUserIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     LaunchedEffect(Unit) {
+        firestore.collection("chats")
+            .whereArrayContains("userIds", currentUserId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val userIds = snapshot.documents
+                    .filter { document ->
+                        val userIdsList = document.get("userIds") as? List<*>
+                        (userIdsList?.size ?: 0) <= 2
+                    }
+                    .flatMap { document ->
+                        (document.get("userIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                    }
+                    .toSet()
+                existingChatUserIds = userIds
+            }
+            .addOnFailureListener { exception ->
+                Log.e("SelectUsersDialog", "Error loading existing chats", exception)
+            }
+
         firestore.collection("users").get()
             .addOnSuccessListener { snapshot ->
                 users = snapshot.documents.mapNotNull { document ->
                     val user = document.toObject(User::class.java)?.copy(userId = document.id)
                     if (user?.userId != currentUserId) user else null
                 }
+                // Filtra os usuários removendo aqueles presentes em userNotAllowed, se fornecido
+                users = if (userNotAllowed != null) {
+                    users.filterNot { userNotAllowed.contains(it.userId) }
+                } else {
+                    users.filterNot { existingChatUserIds.contains(it.userId) }
+                }
             }
             .addOnFailureListener { exception ->
                 Log.e("SelectUsersDialog", "Error loading users", exception)
-            }
-
-        firestore.collection("chats")
-            .whereArrayContains("userIds", currentUserId)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val userIds = snapshot.documents.flatMap { document ->
-                    (document.get("userIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-                }.toSet()
-                existingChatUserIds = userIds
-            }
-            .addOnFailureListener { exception ->
-                Log.e("SelectUsersDialog", "Error loading existing chats", exception)
             }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Users") },
+        title = { Text("Selecionar Usuários") },
         text = {
             Column(modifier = Modifier.padding(8.dp)) {
                 if (users.isEmpty()) {
-                    Text("No users found")
+                    Text("Nenhum usuário encontrado")
                 } else {
                     users.forEach { user ->
-                        if (user.userId !in existingChatUserIds) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = selectedUsers.contains(user),
-                                    onCheckedChange = { isChecked ->
-                                        selectedUsers = if (isChecked) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = selectedUsers.contains(user),
+                                onCheckedChange = { isChecked ->
+                                    selectedUsers = if (isChecked) {
+                                        if (isMultipleSelection) {
                                             (selectedUsers + user).toMutableList()
                                         } else {
+                                            mutableListOf(user) // Permite selecionar apenas um se não for múltipla seleção
+                                        }
+                                    } else {
+                                        if (isMultipleSelection) {
                                             (selectedUsers - user).toMutableList()
+                                        } else {
+                                            mutableListOf() // Desmarcar caso não seja múltipla
                                         }
                                     }
-                                )
-                                Text(text = user.name ?: "Unknown")
-                            }
+                                }
+                            )
+                            Text(text = user.name ?: "Desconhecido")
                         }
                     }
                 }
@@ -90,37 +117,66 @@ fun SelectUsersDialog(
                         add(currentUserId)
                     }
 
-                    val chatData = hashMapOf(
-                        "userIds" to chatUsers,
-                        "messages" to emptyList<Map<String, Any>>(),
-                        "userTyping" to emptyList<Map<String, Any>>()
-                    )
+                    // Verificando se a lista de usuários no chat existente é nula
+                    val usersToAdd = if (chatActionParams.currentUsersInChat == null) {
+                        chatUsers // Se for nula, adicionamos todos os usuários selecionados, incluindo o atual
+                    } else {
+                        // Filtrando a lista para remover o próprio usuário logado, se ele já estiver no chat
+                        (chatActionParams.currentUsersInChat + chatUsers).distinct()
+                    }
 
-                    firestore.collection("chats")
-                        .add(chatData)
-                        .addOnSuccessListener {
-                            onUserSelected(selectedUsers)
-                            onDismiss()
+                    if (chatActionParams.create) {
+                        // Criar um novo chat
+                        val chatData = hashMapOf(
+                            "userIds" to usersToAdd,
+                            "messages" to emptyList<Map<String, Any>>(),
+                            "userTyping" to emptyList<Map<String, Any>>()
+                        )
+
+                        firestore.collection("chats")
+                            .add(chatData)
+                            .addOnSuccessListener { documentReference ->
+                                val newChatId = documentReference.id
+                                onUserSelected(newChatId)
+                                onDismiss()
+                            }
+                            .addOnFailureListener { exception ->
+                                Log.e("SelectUsersDialog", "Error creating chat", exception)
+                            }
+                            .addOnCompleteListener {
+                                isLoading = false
+                            }
+                    } else {
+                        // Adicionar ao chat existente
+                        val existingChatId = chatActionParams.existingChat
+                        if (existingChatId != null) {
+                            firestore.collection("chats").document(existingChatId)
+                                .update("userIds", usersToAdd)
+                                .addOnSuccessListener {
+                                    onUserSelected("")
+                                    onDismiss()
+                                }
+                                .addOnFailureListener { exception ->
+                                    Log.e("SelectUsersDialog", "Error updating chat", exception)
+                                }
+                                .addOnCompleteListener {
+                                    isLoading = false
+                                }
                         }
-                        .addOnFailureListener { exception ->
-                            Log.e("SelectUsersDialog", "Error creating chat", exception)
-                        }
-                        .addOnCompleteListener {
-                            isLoading = false
-                        }
+                    }
                 },
                 enabled = selectedUsers.isNotEmpty() && !isLoading
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Create Chat")
+                    Text(if (chatActionParams.create) "Criar Chat" else "Adicionar ao Chat")
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancelar")
             }
         }
     )

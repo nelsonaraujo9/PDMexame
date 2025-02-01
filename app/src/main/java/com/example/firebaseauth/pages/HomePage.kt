@@ -136,8 +136,11 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
         if (showUserPicker) {
             SelectUsersDialog(
                 onDismiss = { showUserPicker = false },
-                onUserSelected = { selectedUsers ->
+                onUserSelected = { newChatId ->
                     showUserPicker = false
+                    if(newChatId.isNotEmpty()){
+                        navController.navigate(AppPages.ChatPage.route.replace("{chatId}", newChatId))
+                    }
                 }
             )
         }
