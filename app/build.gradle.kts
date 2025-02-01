@@ -54,6 +54,8 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.firebase.storage.ktx)
+    implementation(libs.androidbrowserhelper)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -68,6 +70,18 @@ dependencies {
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1") // Google Identity Services
     implementation ("com.google.firebase:firebase-auth:21.0.1")
     implementation ("com.google.firebase:firebase-firestore:24.0.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+    implementation ("io.coil-kt:coil-compose:2.2.2") // Verifique se há uma versão mais recente
+    implementation ("androidx.compose.material:material-icons-extended:1.4.0") // Versão do Compose Icons
+    implementation ("com.google.accompanist:accompanist-permissions:0.26.3-alpha")
+    implementation ("androidx.compose.foundation:foundation:1.3.0") // Adicionar dependência do Compose Permissions
+    implementation ("androidx.compose.material:material:1.3.0")// Adicionar dependência de Material
+    implementation ("com.google.accompanist:accompanist-permissions:0.28.0")
+
+    // Certifique-se de usar a versão mais recente
 
 }
 

@@ -7,17 +7,13 @@ import com.google.firebase.auth.FirebaseUser
 
 class AuthViewModel : ViewModel() {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-
     var isAuthenticated by mutableStateOf(false)
         private set
-
     var currentUser by mutableStateOf<FirebaseUser?>(null)
         private set
-
     init {
         checkUserAuthStatus()
     }
-
     private fun checkUserAuthStatus() {
 
         auth.addAuthStateListener { authState ->
@@ -29,7 +25,6 @@ class AuthViewModel : ViewModel() {
             }
         }
     }
-
     fun logout() {
         auth.signOut()
         currentUser = null

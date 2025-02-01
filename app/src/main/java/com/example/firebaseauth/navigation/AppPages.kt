@@ -5,6 +5,5 @@ sealed class AppPages(val route: String) {
     object HomePage: AppPages("home_page")
     object SignupPage: AppPages("signup_page")
     object EditProfilePage : AppPages("edit_profile")
+    object ChatPage : AppPages("chat_page/{chatId}")
 }
-
-

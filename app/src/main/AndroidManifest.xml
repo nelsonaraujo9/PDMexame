@@ -12,20 +12,25 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FirebaseAuth"
         tools:targetApi="31">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.FirebaseAuth">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
     </application>
+
+    <!-- Permissão para acessar a internet -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Permissões de armazenamento -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
 </manifest>

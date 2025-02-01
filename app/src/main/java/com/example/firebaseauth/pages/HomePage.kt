@@ -1,29 +1,42 @@
 package com.example.firebaseauth.pages
 
 import AuthViewModel
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
+import com.example.firebaseauth.componentes.ChatItem
+import com.example.firebaseauth.componentes.SelectUsersDialog
+import com.example.firebaseauth.model.Chat
 import com.example.firebaseauth.navigation.AppPages
-import com.example.firebaseauth.model.ChatMessage
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ListenerRegistration
 
 @Composable
 fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
     val currentUser = authViewModel.currentUser
     val firestore = FirebaseFirestore.getInstance()
-    var chatMessages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
-    var newMessageText by remember { mutableStateOf("") }
-    var listenerRegistration: ListenerRegistration? by remember { mutableStateOf(null) }
+    var chats by remember { mutableStateOf<List<Chat>>(emptyList()) }
+    var profileImageUrl by remember { mutableStateOf("") }
+    var userName by remember { mutableStateOf("") }
+    var showUserPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentUser) {
         if (currentUser == null) {
@@ -31,120 +44,102 @@ fun HomePage(navController: NavController, authViewModel: AuthViewModel) {
                 popUpTo(AppPages.HomePage.route) { inclusive = true }
             }
         } else {
-            listenerRegistration = firestore.collection("chatMessages")
-                .orderBy("timestamp")
+            firestore.collection("users").document(currentUser.uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    profileImageUrl = document.getString("imageUrl") ?: ""
+                    userName = document.getString("name") ?: "User"
+                }
+            firestore.collection("chats")
+                .whereArrayContains("userIds", currentUser.uid)
                 .addSnapshotListener { snapshot, error ->
-                    if (error != null) return@addSnapshotListener
-                    snapshot?.let { chatMessages = it.toObjects(ChatMessage::class.java) }
+                    if (error != null) {
+                        return@addSnapshotListener
+                    }
+
+                    snapshot?.let {
+                        val updatedChats = it.documents.map { document ->
+                            val chatId = document.id
+                            val chatData = document.toObject(Chat::class.java)
+                            chatData?.copy(chatId = chatId)
+                        }.filterNotNull()
+
+
+                        chats = updatedChats
+                    }
                 }
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose { listenerRegistration?.remove() }
-    }
-
-    if (currentUser != null) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("Welcome, ${currentUser.email ?: "User"}")
-
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth()
+    Scaffold(
+        modifier = Modifier.fillMaxSize().padding(15.dp),
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showUserPicker = true },
+                modifier = Modifier.padding(16.dp)
             ) {
-                items(chatMessages) { message ->
-                    ChatMessageItem(message, currentUser.uid)
-                }
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Chat")
             }
+        }
+    ) { paddingValues ->
+        Column(modifier = Modifier.padding(paddingValues)) {
+            Spacer(modifier = Modifier.height(32.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                OutlinedTextField(
-                    value = newMessageText,
-                    onValueChange = { newMessageText = it },
-                    label = { Text("Type a message") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-                )
-
-                Button(
-                    onClick = {
-                        if (newMessageText.isNotBlank()) {
-                            val message = ChatMessage(
-                                text = newMessageText,
-                                senderId = currentUser.uid,
-                                senderEmail = currentUser.email ?: "Anonymous"
-                            )
-                            firestore.collection("chatMessages").add(message)
-                            newMessageText = ""
-                        }
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Text("Send")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (profileImageUrl.isNotBlank()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(profileImageUrl),
+                            contentDescription = "Profile Image",
+                            modifier = Modifier.size(50.dp).clickable {
+                                navController.navigate(AppPages.EditProfilePage.route)
+                            }
+                                .clip(CircleShape),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Default Profile Icon",
+                            modifier = Modifier.size(50.dp).clickable {
+                                navController.navigate(AppPages.EditProfilePage.route)
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Welcome, $userName")
                 }
-            }
-
-            Button(
-                onClick = {
-                    navController.navigate(AppPages.EditProfilePage.route)
-                },
-                modifier = Modifier.padding(top = 16.dp)
-            ) {
-                Text("Edit Profile")
-            }
-
-            Button(
-                onClick = {
+                IconButton(onClick = {
                     authViewModel.logout()
                     navController.navigate(AppPages.LoginPage.route) {
                         popUpTo(AppPages.HomePage.route) { inclusive = true }
                     }
-                },
-                modifier = Modifier.padding(top = 16.dp)
-            ) {
-                Text("Logout")
+                }) {
+                    Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Logout")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(chats) { chat ->
+                    ChatItem(chat) { chatId ->
+                        navController.navigate(AppPages.ChatPage.route.replace("{chatId}", chatId))
+                    }
+                }
             }
         }
-    }
-}
 
-@Composable
-fun ChatMessageItem(message: ChatMessage, currentUserId: String) {
-    val isCurrentUser = message.senderId == currentUserId
-    val alignment = if (isCurrentUser) Alignment.TopEnd else Alignment.TopStart
-    val color = if (isCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        contentAlignment = alignment
-    ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = color)
-        ) {
-            Column(
-                modifier = Modifier.padding(8.dp)
-            ) {
-                Text(
-                    text = message.senderEmail,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-                Text(
-                    text = message.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
+        if (showUserPicker) {
+            SelectUsersDialog(
+                onDismiss = { showUserPicker = false },
+                onUserSelected = { selectedUsers ->
+                    showUserPicker = false
+                }
+            )
         }
     }
 }

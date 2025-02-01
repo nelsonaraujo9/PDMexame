@@ -1,6 +1,7 @@
 package com.example.firebaseauth.navigation
 
 import AuthViewModel
+import ChatPage
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -42,10 +43,21 @@ fun AppNavigation() {
             route = AppPages.EditProfilePage.route
         ) {
             EditProfilePage(
-            navController = navController,
-            authViewModel = authViewModel
+                navController = navController,
+                authViewModel = authViewModel
             )
-
+        }
+        composable(
+            route = AppPages.ChatPage.route
+        ) { backStackEntry ->
+            val chatId = backStackEntry.arguments?.getString("chatId")
+            if (chatId != null) {
+                ChatPage(
+                    navController = navController,
+                    authViewModel = authViewModel,
+                    chatId = chatId
+                )
+            }
         }
     }
 }

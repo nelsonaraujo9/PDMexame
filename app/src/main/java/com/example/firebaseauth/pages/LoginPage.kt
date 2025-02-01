@@ -27,7 +27,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 fun LoginPage(navController: NavController) {
     val loginViewModel: LoginViewModel = viewModel()
 
-    // Só executa quando o loginSuccess muda de valor
     LaunchedEffect(loginViewModel.loginSuccess) {
         if (loginViewModel.loginSuccess) {
             navController.navigate(AppPages.HomePage.route) {
@@ -39,7 +38,6 @@ fun LoginPage(navController: NavController) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
 
-    // Configuração do Google Sign-In
     val googleSignInClient = GoogleSignIn.getClient(
         context,
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -90,12 +88,6 @@ fun LoginPage(navController: NavController) {
             }
         }
     )
-
-
-
-
-
-    // Função para iniciar o processo de login com Google
     fun handleGoogleSignIn() {
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
@@ -142,8 +134,6 @@ fun LoginPage(navController: NavController) {
         ) {
             Text("Sign Up")
         }
-
-        // Botão para login com Google
         Button(
             onClick = { handleGoogleSignIn() },
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp)

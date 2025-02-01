@@ -32,8 +32,6 @@ class LoginViewModel : ViewModel() {
             errorMessage = "Please fill all fields"
         }
     }
-
-    // Função de login com Google
     fun loginWithGoogle(idToken: String, onComplete: (Boolean) -> Unit) {
         isLoading = true
         val credential = GoogleAuthProvider.getCredential(idToken, null)
@@ -46,7 +44,6 @@ class LoginViewModel : ViewModel() {
                     onComplete(true)
                 } else {
                     errorMessage = task.exception?.message ?: "Google login failed"
-                    Log.e("LoginViewModel", "Google login error: ${task.exception?.message}") // Log de erro
                     onComplete(false)
                 }
             }

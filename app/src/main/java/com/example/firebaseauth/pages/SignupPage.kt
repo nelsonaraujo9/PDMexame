@@ -18,7 +18,6 @@ import com.example.firebaseauth.viewmodels.SignupViewModel
 fun SignupPage(navController: NavController) {
     val signupViewModel: SignupViewModel = viewModel()
 
-    // Navega para a página inicial após o signup bem-sucedido
     LaunchedEffect(signupViewModel.signupSuccess) {
         if (signupViewModel.signupSuccess) {
             navController.navigate(AppPages.HomePage.route) {
